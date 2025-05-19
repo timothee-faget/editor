@@ -1,5 +1,8 @@
 // use editor::TextBuffer;
+use editor::run;
 
 fn main() {
-    println!("Hello Tim");
+    if let Err(e) = run() {
+        eprintln!("Erreur {}", e);
+    }
 }

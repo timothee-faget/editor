@@ -1,12 +1,22 @@
 Editor dev road map
 
-[ ] - Gestion du buffer
+# Comportement:
+
+Ouverture
+
+Sans fichier
+
+Avec 
+
+# Todo list
+
+[x] - Gestion du buffer
     [x] - delete
     [x] - insert
     [x] - split line
     [x] - delete range
-    [ ] - from file
+    [x] - from file
 
-[ ] - Gestion du fichier
-
-[ ] -
+[ ] - Gestion du terminal
+    [ ] - Inputs
+    [ ] - Affichage

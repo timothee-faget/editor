@@ -24,7 +24,7 @@ impl Buffer {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         Ok(Self {
-            data: reader.lines().collect::<Vec<String>>(),
+            data: reader.lines().collect::<Result<Vec<String>, _>>()?,
         })
     }
 
@@ -95,6 +95,8 @@ impl BufferSelection {
 
 #[cfg(test)]
 mod tests_buffer {
+    use std::path::PathBuf;
+
     use super::{Buffer, BufferPosition, BufferSelection};
 
     #[test]
@@ -181,5 +183,19 @@ mod tests_buffer {
         let selection = BufferSelection::new(BufferPosition::new(6, 0), BufferPosition::new(10, 2));
         buffer.delete_range(selection);
         assert_eq!(buffer.data, vec![String::from("Bonjouez vous?")]);
+    }
+
+    #[test]
+    fn from_file() {
+        let path = PathBuf::from("tests/from_file_test.txt");
+
+        let buffer = Buffer::from_file(path);
+
+        assert!(buffer.is_ok());
+
+        let buffer = buffer.unwrap();
+
+        assert_eq!(buffer.data[0], String::from("Bonjour les amis"));
+        assert_eq!(buffer.data[1], String::from("Comment allez vous?"));
     }
 }
