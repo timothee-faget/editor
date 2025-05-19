@@ -1,0 +1,28 @@
+Curseur
+
+Il faut qu'on puisse bouger le curseur dans le texte, qu'on voit le mouvement visuellement. 
+
+-> Surligner caractère voulu ?
+    -> fn(position_curseur, caractere_buffer)
+
+- Mouvement vertical :
+    - Sauf pour la première et la dernière ligne, dessus / dessous sont pareils
+    - fn(position_curseur) -> position dans le buffer
+    - Si la len(ligne_visee) >= position_curseur.x : "pas de soucis"
+    - Sinon : on note la position_curseur.x sous position_maxi (ou autre)
+    - Si on peut et qu'on doit, on remonte position_curseur vers son maxi
+
+- Boucle de fonctionnement:
+    - clear du terminal
+    - détermination de la position écran
+
+- Affichage du curseur:
+    - Quand ?
+        - En meme temps que le texte -> 
+        - Apres
+
+Allez on repose tout:
+
+Buffer
+    - data : Vec<String> où les String sont les lignes?
+    - 

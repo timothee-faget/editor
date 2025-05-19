@@ -1,9 +1,10 @@
-use editor::TextBuffer;
+use editor::run_editor;
 
 fn main() {
-    let mut buffer = TextBuffer::new(vec!['a', 'b', 'c', '\n', 'b']);
-
-    println!("{}", buffer.to_string());
-    buffer.push('c');
-    println!("{}", buffer.to_string());
+    println!("Hello World");
+    if let Err(e) = run_editor() {
+        eprintln!("Erreur dans l'éditeur : {}", e);
+    } else {
+        println!("Tout s'est bien passé, sur le papier du moins")
+    }
 }
