@@ -1,0 +1,12 @@
+Editor dev road map
+
+[ ] - Gestion du buffer
+    [x] - delete
+    [x] - insert
+    [x] - split line
+    [x] - delete range
+    [ ] - from file
+
+[ ] - Gestion du fichier
+
+[ ] -
