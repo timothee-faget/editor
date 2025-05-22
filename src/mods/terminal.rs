@@ -6,7 +6,7 @@ use crossterm::{
 
 use std::{error::Error, io};
 
-use super::buffer::Buffer;
+use super::{buffer::Buffer, cursor::Cursor};
 
 pub struct Terminal {
     stdout: io::Stdout,
@@ -130,7 +130,11 @@ impl Terminal {
         Ok(())
     }
 
-    pub fn write_status_line(&mut self, filename: &String) -> Result<(), Box<dyn Error>> {
+    pub fn write_status_line(
+        &mut self,
+        filename: &String,
+        cursor: &Cursor,
+    ) -> Result<(), Box<dyn Error>> {
         let size = self.get_size()?;
 
         // Backgound
@@ -149,12 +153,82 @@ impl Terminal {
 
         // position
         let style_b3 = CharStyle::new(Color::White, Color::DarkRed);
-        let position_string = String::from(" XX:YY ");
+        let position = cursor.get_pos();
+        let position_string = String::from(format!(
+            "{:?} {}:{} {} ",
+            cursor.get_prev_pos(),
+            position.1,
+            position.0,
+            cursor.get_opt_col()
+        ));
         self.write_block(
             &position_string,
             &style_b3,
             (size.0 - position_string.len() as u16, size.1),
         )?;
+
+        Ok(())
+    }
+
+    pub fn update_status_line_cursor(&mut self, cursor: &Cursor) -> Result<(), Box<dyn Error>> {
+        let size = self.get_size()?;
+        let style_b3 = CharStyle::new(Color::White, Color::DarkRed);
+        let position = cursor.get_pos();
+        let position_string = String::from(format!(
+            "{:?} {}:{} {} ",
+            cursor.get_prev_pos(),
+            position.1,
+            position.0,
+            cursor.get_opt_col()
+        ));
+        self.write_block(
+            &position_string,
+            &style_b3,
+            (size.0 - position_string.len() as u16, size.1),
+        )?;
+
+        Ok(())
+    }
+
+    pub fn write_lines(
+        &mut self,
+        lines: &Vec<(u16, String)>,
+        number_col_width: u16,
+        buffer_size: u16,
+    ) -> Result<(), Box<dyn Error>> {
+        let number_col_style = CharStyle::new(Color::Grey, Color::DarkGrey);
+        let line_style = CharStyle::new(Color::White, Color::Black);
+        let size = self.get_size()?;
+        for (i, line) in lines.iter().enumerate() {
+            if line.0 < buffer_size {
+                self.write_block(
+                    &format!("{:>width$}", &line.0 + 1, width = number_col_width as usize),
+                    &number_col_style,
+                    (0, i as u16),
+                )?;
+                self.write_block(
+                    &format!(
+                        " {} {:>width$}",
+                        &line.1,
+                        ' ',
+                        width = size.0 as usize - line.1.len()
+                    ),
+                    &line_style,
+                    (number_col_width as u16, i as u16),
+                )?;
+            } else {
+                self.write_block(
+                    &format!("{:>width$}", "", width = number_col_width as usize),
+                    &number_col_style,
+                    (0, i as u16),
+                )?;
+                self.write_block(
+                    &format!("{:>width$}", " ", width = size.0 as usize),
+                    &line_style,
+                    (number_col_width, i as u16),
+                )?;
+            }
+        }
 
         Ok(())
     }
@@ -191,6 +265,39 @@ impl Terminal {
                 )?;
             }
         }
+
+        Ok(())
+    }
+
+    pub fn draw_cursor(
+        &mut self,
+        lines: &Vec<(u16, String)>,
+        cursor: &Cursor,
+        number_col_width: u16,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut pos = cursor.get_pos();
+        let mut prev_pos = cursor.get_prev_pos();
+
+        let prev_char = &lines[prev_pos.1 as usize]
+            .1
+            .chars()
+            .nth(prev_pos.0 as usize)
+            .map_or(' ', |v| v);
+
+        prev_pos.0 += number_col_width + 1;
+        self.write(
+            *prev_char,
+            &CharStyle::new(Color::White, Color::Black),
+            prev_pos,
+        )?;
+
+        let char = &lines[pos.1 as usize]
+            .1
+            .chars()
+            .nth(pos.0 as usize)
+            .map_or(' ', |v| v);
+        pos.0 += number_col_width + 1;
+        self.write(*char, &CharStyle::new(Color::Black, Color::White), pos)?;
 
         Ok(())
     }
