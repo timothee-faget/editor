@@ -5,27 +5,59 @@ use std::{
     path::PathBuf,
 };
 
+#[derive(Debug, Clone)]
 pub struct Buffer {
+    filepath: PathBuf,
     data: Vec<String>,
 }
 
 impl Buffer {
     pub fn new() -> Self {
         Self {
+            filepath: PathBuf::new(),
             data: vec![String::new()],
         }
     }
 
     pub fn from_vec(vec: Vec<String>) -> Self {
-        Self { data: vec }
+        Self {
+            filepath: PathBuf::new(),
+            data: vec,
+        }
     }
 
     pub fn from_file(path: PathBuf) -> Result<Self, Box<dyn Error>> {
-        let file = File::open(path)?;
+        let file = File::open(&path)?;
         let reader = BufReader::new(file);
         Ok(Self {
+            filepath: path,
             data: reader.lines().collect::<Result<Vec<String>, _>>()?,
         })
+    }
+
+    pub fn get_file_name(&self) -> String {
+        if let Some(name) = self.filepath.file_name() {
+            String::from(name.to_str().unwrap()) // WARNING
+        } else {
+            String::new()
+        }
+    }
+
+    pub fn get_size(&self) -> usize {
+        self.data.len()
+    }
+
+    pub fn get_n_lines(&self, n: usize, scroll_offset: usize) -> Vec<(u16, String)> {
+        let mut lines = Vec::new();
+        for i in 0..n {
+            lines.push((
+                (i + scroll_offset) as u16,
+                self.data
+                    .get(i + scroll_offset)
+                    .map_or(String::new(), |v| v.to_string()),
+            ));
+        }
+        lines
     }
 
     pub fn insert(&mut self, c: char, position: BufferPosition) {
@@ -197,5 +229,16 @@ mod tests_buffer {
 
         assert_eq!(buffer.data[0], String::from("Bonjour les amis"));
         assert_eq!(buffer.data[1], String::from("Comment allez vous?"));
+    }
+
+    #[test]
+    fn get_size() {
+        let buffer = Buffer::from_vec(vec![
+            String::from("Bonjour les amis"),
+            String::from("Bonjour les amis"),
+            String::from("Comment allez vous?"),
+        ]);
+
+        assert_eq!(buffer.get_size(), 3);
     }
 }
