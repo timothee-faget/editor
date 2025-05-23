@@ -109,15 +109,14 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 }
 
 pub struct Editor {
-    // buffers: Vec<Buffer>,
     terminal: &'static mut Terminal,
     buffer: Buffer,
     scroll_offset: usize,
     cursor: Cursor,
     mode: EditorMode,
     lines: Vec<(u16, String)>,
-    // num_col: NumColumn,
-    // status_line: StatusLine
+    num_col: NumColumn,
+    status_line: StatusLine,
 }
 
 impl Editor {
@@ -129,12 +128,45 @@ impl Editor {
             cursor: Cursor::new(),
             mode: EditorMode::Normal,
             lines: vec![],
+            num_col: NumColumn::new(),
+            status_line: StatusLine::new(),
         }
     }
 
+    pub fn build(terminal: &'static mut Terminal) -> Self {
+        todo!()
+    }
+
     pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        self.terminal.draw_cursor(&self.lines, &self.cursor, 3)?;
-        todo!();
+        // Initialisation
+
+        // Main loop
+        loop {
+            if let Event::Key(key_event) = event::read()? {
+                match key_event.code {
+                    KeyCode::Right | KeyCode::Char('l') => {}
+                    KeyCode::Left | KeyCode::Char('h') => {}
+                    KeyCode::Up | KeyCode::Char('k') => {}
+                    KeyCode::Down | KeyCode::Char('j') => {}
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    pub fn change_buffer(&mut self, buffer: Buffer) {
+        self.buffer = buffer;
+        self.lines = self.buffer.get_n_lines(
+            self.terminal.get_size().unwrap().1 as usize - 1,
+            self.scroll_offset,
+        );
+    }
+
+    fn display_buffer_lines(&self) {}
+
+    fn update_num_col_width(&mut self) {
+        self.num_col
+            .update_width((self.buffer.get_size().to_string().len() + 1) as u16);
     }
 }
 
@@ -143,4 +175,38 @@ enum EditorMode {
     // Insert,
     // Visual,
     // Command,
+}
+
+pub struct NumColumn {
+    width: u16,
+    nums: Vec<u16>,
+}
+
+impl NumColumn {
+    pub fn new() -> Self {
+        Self {
+            width: 0,
+            nums: vec![],
+        }
+    }
+
+    pub fn update_width(&mut self, new_width: u16) {
+        self.width = new_width
+    }
+
+    pub fn update_nums(&mut self, new_nums: Vec<u16>) {
+        self.nums = new_nums
+    }
+
+    pub fn update(&mut self, lines: Vec<(u16, String)>) {
+        self.update_nums(lines.iter().map(|l| l.0).collect());
+    }
+}
+
+pub struct StatusLine {}
+
+impl StatusLine {
+    pub fn new() -> Self {
+        Self {}
+    }
 }
