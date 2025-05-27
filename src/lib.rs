@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use crossterm::event::{self, Event, KeyCode};
 use mods::buffer::Buffer;
 use mods::cursor::Cursor;
+use mods::numcol::NumColumn;
+use mods::statusline::StatusLine;
 use mods::terminal::Terminal;
 
 pub mod mods;
@@ -108,8 +110,17 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub struct Editor {
-    terminal: &'static mut Terminal,
+pub fn run_editor() -> Result<(), Box<dyn Error>> {
+    let mut term = Terminal::build()?;
+
+    let mut editor = Editor::build(PathBuf::from("tests/test_editor_1.txt"), &mut term)?;
+    editor.run()?;
+
+    Ok(())
+}
+
+pub struct Editor<'a> {
+    terminal: &'a mut Terminal,
     buffer: Buffer,
     scroll_offset: usize,
     cursor: Cursor,
@@ -119,8 +130,8 @@ pub struct Editor {
     status_line: StatusLine,
 }
 
-impl Editor {
-    pub fn new(terminal: &'static mut Terminal) -> Self {
+impl<'a> Editor<'a> {
+    pub fn new(terminal: &'a mut Terminal) -> Self {
         Self {
             terminal,
             buffer: Buffer::new(),
@@ -133,12 +144,26 @@ impl Editor {
         }
     }
 
-    pub fn build(terminal: &'static mut Terminal) -> Self {
-        todo!()
+    pub fn build(filepath: PathBuf, terminal: &'a mut Terminal) -> Result<Self, Box<dyn Error>> {
+        let buffer = Buffer::from_file(filepath)?;
+        let buffer_size = buffer.get_size() as u16;
+        let term_size = terminal.get_size().unwrap().1;
+        let lines = buffer.get_n_lines(term_size as usize, 0);
+        Ok(Self {
+            terminal,
+            buffer,
+            scroll_offset: 0,
+            cursor: Cursor::new(),
+            mode: EditorMode::Normal,
+            lines,
+            num_col: NumColumn::build(buffer_size, 0, term_size - 1),
+            status_line: StatusLine::new(),
+        })
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
         // Initialisation
+        self.display_numcol()?;
 
         // Main loop
         loop {
@@ -147,11 +172,14 @@ impl Editor {
                     KeyCode::Right | KeyCode::Char('l') => {}
                     KeyCode::Left | KeyCode::Char('h') => {}
                     KeyCode::Up | KeyCode::Char('k') => {}
-                    KeyCode::Down | KeyCode::Char('j') => {}
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        break;
+                    }
                     _ => {}
                 }
             }
         }
+        Ok(())
     }
 
     pub fn change_buffer(&mut self, buffer: Buffer) {
@@ -162,12 +190,12 @@ impl Editor {
         );
     }
 
-    fn display_buffer_lines(&self) {}
-
-    fn update_num_col_width(&mut self) {
-        self.num_col
-            .update_width((self.buffer.get_size().to_string().len() + 1) as u16);
+    fn display_numcol(&mut self) -> Result<(), Box<dyn Error>> {
+        self.terminal.draw_numcol(&self.num_col)?;
+        Ok(())
     }
+
+    fn display_buffer_lines(&self) {}
 }
 
 enum EditorMode {
@@ -175,38 +203,4 @@ enum EditorMode {
     // Insert,
     // Visual,
     // Command,
-}
-
-pub struct NumColumn {
-    width: u16,
-    nums: Vec<u16>,
-}
-
-impl NumColumn {
-    pub fn new() -> Self {
-        Self {
-            width: 0,
-            nums: vec![],
-        }
-    }
-
-    pub fn update_width(&mut self, new_width: u16) {
-        self.width = new_width
-    }
-
-    pub fn update_nums(&mut self, new_nums: Vec<u16>) {
-        self.nums = new_nums
-    }
-
-    pub fn update(&mut self, lines: Vec<(u16, String)>) {
-        self.update_nums(lines.iter().map(|l| l.0).collect());
-    }
-}
-
-pub struct StatusLine {}
-
-impl StatusLine {
-    pub fn new() -> Self {
-        Self {}
-    }
 }

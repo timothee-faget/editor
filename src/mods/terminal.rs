@@ -6,7 +6,7 @@ use crossterm::{
 
 use std::{error::Error, io};
 
-use super::{buffer::Buffer, cursor::Cursor};
+use super::{buffer::Buffer, cursor::Cursor, numcol::NumColumn};
 
 pub struct Terminal {
     stdout: io::Stdout,
@@ -301,6 +301,27 @@ impl Terminal {
 
         Ok(())
     }
+
+    pub fn draw_numcol(&mut self, numcol: &NumColumn) -> Result<(), Box<dyn Error>> {
+        let width = numcol.get_width();
+        let numcol_style = CharStyle::new(Color::Grey, Color::DarkGrey);
+        for (i, line) in numcol.get_nums().iter().enumerate() {
+            if let Some(l) = line {
+                self.write_block(
+                    &format!(" {:>width$} ", l, width = width as usize),
+                    &numcol_style,
+                    (0, i as u16),
+                )?;
+            } else {
+                self.write_block(
+                    &format!(" {:>width$} ", '.', width = width as usize),
+                    &numcol_style,
+                    (0, i as u16),
+                )?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -309,6 +330,7 @@ enum TerminalMode {
     Classic,
 }
 
+#[derive(Clone, Copy)]
 pub struct CharStyle {
     fg: Color,
     bg: Color,
