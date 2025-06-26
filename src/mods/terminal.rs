@@ -6,7 +6,7 @@ use crossterm::{
 
 use std::{error::Error, io};
 
-use super::{buffer::Buffer, cursor::Cursor, numcol::NumColumn};
+use super::{buffer::Buffer, cursor::Cursor, numcol::NumColumn, statusline::StatusLine};
 
 pub struct Terminal {
     stdout: io::Stdout,
@@ -320,6 +320,14 @@ impl Terminal {
                 )?;
             }
         }
+        Ok(())
+    }
+
+    pub fn draw_status_line(&mut self, status_line: &StatusLine) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
+
+    pub fn update_status_line(&mut self, status_line: &StatusLine) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 }
