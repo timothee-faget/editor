@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use crossterm::event::{self, Event, KeyCode};
 use mods::buffer::Buffer;
@@ -121,9 +122,9 @@ pub fn run_editor() -> Result<(), Box<dyn Error>> {
 
 pub struct Editor<'a> {
     terminal: &'a mut Terminal,
-    buffer: Buffer,
+    buffer: Rc<Buffer>,
     scroll_offset: usize,
-    cursor: Cursor,
+    cursor: Rc<Cursor>,
     mode: EditorMode,
     lines: Vec<(u16, String)>,
     num_col: NumColumn,
@@ -131,48 +132,50 @@ pub struct Editor<'a> {
 }
 
 impl<'a> Editor<'a> {
-    pub fn new(terminal: &'a mut Terminal) -> Self {
-        Self {
-            terminal,
-            buffer: Buffer::new(),
-            scroll_offset: 0,
-            cursor: Cursor::new(),
-            mode: EditorMode::Normal,
-            lines: vec![],
-            num_col: NumColumn::new(),
-            status_line: StatusLine::new(),
-        }
-    }
-
     pub fn build(filepath: PathBuf, terminal: &'a mut Terminal) -> Result<Self, Box<dyn Error>> {
-        let buffer = Buffer::from_file(filepath)?;
+        // TODO :  Rendre ça pluys intelligible et plus propre
+
+        let buffer = Rc::new(Buffer::from_file(filepath)?);
         let buffer_size = buffer.get_size() as u16;
-        let term_size = terminal.get_size().unwrap().1;
+        let term_size = terminal.get_size().unwrap().1 - 1;
         let lines = buffer.get_n_lines(term_size as usize, 0);
+        let cursor = Rc::new(Cursor::new());
+        let mode = Rc::new(EditorMode::Normal);
+        let scroll_offset = Rc::new(0);
+        let status_line = StatusLine::new(
+            mode,
+            Rc::clone(&cursor),
+            Rc::clone(&buffer),
+            Rc::clone(&scroll_offset),
+        );
+
         Ok(Self {
             terminal,
             buffer,
             scroll_offset: 0,
-            cursor: Cursor::new(),
+            cursor,
             mode: EditorMode::Normal,
             lines,
-            num_col: NumColumn::build(buffer_size, 0, term_size - 1),
-            status_line: StatusLine::new(),
+            num_col: NumColumn::build(buffer_size, 0, term_size),
+            status_line,
         })
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        // Initialisation
+        self.terminal.clear()?;
         self.display_numcol()?;
+        self.display_status_line()?;
+        self.display_buffer_lines()?;
+        self.display_cursor()?;
 
-        // Main loop
         loop {
             if let Event::Key(key_event) = event::read()? {
                 match key_event.code {
                     KeyCode::Right | KeyCode::Char('l') => {}
                     KeyCode::Left | KeyCode::Char('h') => {}
                     KeyCode::Up | KeyCode::Char('k') => {}
-                    KeyCode::Down | KeyCode::Char('j') => {
+                    KeyCode::Down | KeyCode::Char('j') => {}
+                    KeyCode::Esc => {
                         break;
                     }
                     _ => {}
@@ -183,7 +186,7 @@ impl<'a> Editor<'a> {
     }
 
     pub fn change_buffer(&mut self, buffer: Buffer) {
-        self.buffer = buffer;
+        self.buffer = Rc::new(buffer);
         self.lines = self.buffer.get_n_lines(
             self.terminal.get_size().unwrap().1 as usize - 1,
             self.scroll_offset,
@@ -195,10 +198,30 @@ impl<'a> Editor<'a> {
         Ok(())
     }
 
-    fn display_buffer_lines(&self) {}
+    fn display_status_line(&mut self) -> Result<(), Box<dyn Error>> {
+        self.terminal.draw_status_line(&self.status_line)?;
+        Ok(())
+    }
+
+    fn display_buffer_lines(&mut self) -> Result<(), Box<dyn Error>> {
+        self.terminal.draw_buffer(&self.lines, &self.num_col)?;
+        Ok(())
+    }
+
+    fn display_cursor(&mut self) -> Result<(), Box<dyn Error>> {
+        self.terminal
+            .draw_cursor(&self.lines, &self.cursor, self.num_col.get_width())?;
+        Ok(())
+    }
+
+    pub fn lol_mode(&self) {
+        match self.mode {
+            EditorMode::Normal => {}
+        }
+    }
 }
 
-enum EditorMode {
+pub enum EditorMode {
     Normal,
     // Insert,
     // Visual,

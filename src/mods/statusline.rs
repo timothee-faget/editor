@@ -1,35 +1,55 @@
 // TODO  Changer pour des HashMaps
 
 use crossterm::style::Color;
+use std::rc::Rc;
 
-use super::terminal::CharStyle;
+use crate::EditorMode;
+
+use super::{buffer::Buffer, cursor::Cursor, terminal::CharStyle};
 
 pub struct StatusLine {
-    left_modules: StatusLineSide,
-    right_modules: StatusLineSide,
+    mode: Rc<EditorMode>,
+    cursor: Rc<Cursor>,
+    buffer: Rc<Buffer>,
+    scroll_offset: Rc<usize>,
 }
 
 impl StatusLine {
-    pub fn new() -> Self {
+    pub fn new(
+        mode: Rc<EditorMode>,
+        cursor: Rc<Cursor>,
+        buffer: Rc<Buffer>,
+        scroll_offset: Rc<usize>,
+    ) -> Self {
         Self {
-            left_modules: StatusLineSide::new(),
-            right_modules: StatusLineSide::new(),
+            mode,
+            cursor,
+            buffer,
+            scroll_offset,
         }
     }
 
-    pub fn set_module_text(&mut self, module: String, text: String) {
-        if let None = self.right_modules.set_module_text(&module, &text) {
-            if let None = self.left_modules.set_module_text(&module, &text) {
-                eprintln!("Module Not Found !")
-            }
+    pub fn get_blocks(&self) -> Vec<String> {
+        vec![
+            self.get_mode_block(),
+            self.get_filename_block(),
+            self.get_cursor_block(),
+        ]
+    }
+
+    fn get_mode_block(&self) -> String {
+        match *self.mode {
+            EditorMode::Normal => String::from(" NORMAL "),
         }
     }
 
-    pub fn get_blocks(&self) -> (Vec<String>, Vec<String>) {
-        (
-            self.left_modules.get_blocks(),
-            self.right_modules.get_blocks(),
-        )
+    fn get_filename_block(&self) -> String {
+        format!(" {} ", self.buffer.get_file_name())
+    }
+
+    fn get_cursor_block(&self) -> String {
+        let (x, y) = self.cursor.get_pos();
+        format!("{}:{}", x, y + self.scroll_offset.to_be() as u16)
     }
 }
 

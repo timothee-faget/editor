@@ -1,7 +1,8 @@
 use crossterm::{
     cursor,
     style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor},
-    terminal, ExecutableCommand,
+    terminal::{self},
+    ExecutableCommand,
 };
 
 use std::{error::Error, io};
@@ -324,10 +325,50 @@ impl Terminal {
     }
 
     pub fn draw_status_line(&mut self, status_line: &StatusLine) -> Result<(), Box<dyn Error>> {
+        let size = self.get_size()?;
+        let style = CharStyle::new(Color::White, Color::Grey);
+        for w in 0..size.0 {
+            self.write(' ', &style, (w as u16, size.1))?;
+        }
+
+        let blocks = status_line.get_blocks();
+        self.write_block(
+            &blocks[0],
+            &CharStyle::new(Color::Grey, Color::Green),
+            (0, size.1),
+        )?;
+
+        let mut pos = blocks[0].len() as u16;
+        self.write_block(
+            &blocks[1],
+            &CharStyle::new(Color::Grey, Color::Blue),
+            (pos, size.1),
+        )?;
+
+        pos = size.0 - blocks[2].len() as u16;
+        self.write_block(
+            &blocks[2],
+            &CharStyle::new(Color::Grey, Color::DarkCyan),
+            (pos, size.1),
+        )?;
+
         Ok(())
     }
 
-    pub fn update_status_line(&mut self, status_line: &StatusLine) -> Result<(), Box<dyn Error>> {
+    // pub fn update_status_line(&mut self, status_line: &StatusLine) -> Result<(), Box<dyn Error>> {
+    //     Ok(())
+    // }
+
+    pub fn draw_buffer(
+        &mut self,
+        lines: &Vec<(u16, String)>,
+        numcol: &NumColumn,
+    ) -> Result<(), Box<dyn Error>> {
+        let line_style = CharStyle::new(Color::White, Color::Black);
+        let width = numcol.get_width() + 1;
+        for (i, line) in lines.iter().enumerate() {
+            self.write_block(&format!("{}", line.1), &line_style, (width, i as u16))?;
+        }
         Ok(())
     }
 }
