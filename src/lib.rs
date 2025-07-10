@@ -1,9 +1,11 @@
+use std::cell::RefCell;
 use std::error::Error;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use crossterm::event::{self, Event, KeyCode};
 use mods::buffer::Buffer;
+use mods::config::Config;
 use mods::cursor::Cursor;
 use mods::numcol::NumColumn;
 use mods::statusline::StatusLine;
@@ -11,135 +13,37 @@ use mods::terminal::Terminal;
 
 pub mod mods;
 
-pub fn run() -> Result<(), Box<dyn Error>> {
-    let mut term = Terminal::build()?;
-
-    let filepath = PathBuf::from("tests/test_editor_1.txt");
-    let buffer = Buffer::from_file(filepath)?;
-    let buffer_size = buffer.get_size();
-    let filename = buffer.get_file_name();
-    let mut scroll_offset = 0;
-
-    term.clear()?;
-    let mut cursor = Cursor::new();
-    term.write_status_line(&filename, &cursor)?;
-
-    let number_col_width = (buffer.get_size().to_string().len() + 1) as u16;
-
-    let mut lines = buffer.get_n_lines(term.get_size().unwrap().1 as usize - 1, scroll_offset);
-    term.write_lines(&lines, number_col_width, buffer_size as u16)?;
-    term.draw_cursor(&lines, &cursor, number_col_width)?;
-
-    loop {
-        if let Event::Key(key_event) = event::read()? {
-            match key_event.code {
-                KeyCode::Right | KeyCode::Char('l') => {
-                    let pos = cursor.get_pos();
-                    let line_len = lines[pos.1 as usize].1.len();
-                    if line_len > 0 {
-                        if pos.0 < line_len as u16 - 1 {
-                            cursor.move_right();
-                            term.draw_cursor(&lines, &cursor, number_col_width)?;
-                            term.update_status_line_cursor(&cursor)?;
-                        }
-                    }
-                }
-                KeyCode::Left | KeyCode::Char('h') => {
-                    cursor.move_left();
-                    term.draw_cursor(&lines, &cursor, number_col_width)?;
-                    term.update_status_line_cursor(&cursor)?;
-                }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if cursor.get_pos().1 + scroll_offset as u16 > 0 {
-                        if cursor.get_pos().1 == 0 && scroll_offset > 0 {
-                            scroll_offset -= 1;
-                            lines = buffer.get_n_lines(lines.len(), scroll_offset);
-                            term.write_lines(&lines, number_col_width, buffer_size as u16)?;
-                            term.draw_cursor(&lines, &cursor, number_col_width)?;
-                            term.update_status_line_cursor(&cursor)?;
-                        } else {
-                            let next_h = cursor.get_pos().1 - 1;
-                            let mut max_col = lines[next_h as usize].1.len() as u16;
-                            if max_col > 0 {
-                                max_col -= 1;
-                            }
-                            let opt_col = cursor.get_opt_col();
-                            if opt_col <= max_col {
-                                cursor.set_pos((opt_col, next_h));
-                            } else {
-                                cursor.set_pos((max_col, next_h));
-                            }
-                            term.draw_cursor(&lines, &cursor, number_col_width)?;
-                            term.update_status_line_cursor(&cursor)?;
-                        }
-                    }
-                }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if cursor.get_pos().1 < (buffer_size - scroll_offset) as u16 - 1 {
-                        if cursor.get_pos().1 == lines.len() as u16 - 1 {
-                            scroll_offset += 1;
-                            lines = buffer.get_n_lines(lines.len(), scroll_offset);
-                            term.write_lines(&lines, number_col_width, buffer_size as u16)?;
-                            term.draw_cursor(&lines, &cursor, number_col_width)?;
-                            term.update_status_line_cursor(&cursor)?;
-                        } else {
-                            let next_h = cursor.get_pos().1 + 1;
-                            let mut max_col = lines[next_h as usize].1.len() as u16;
-                            if max_col > 0 {
-                                max_col -= 1;
-                            }
-                            let opt_col = cursor.get_opt_col();
-                            if opt_col <= max_col {
-                                cursor.set_pos((opt_col, next_h));
-                            } else {
-                                cursor.set_pos((max_col, next_h));
-                            }
-                            term.draw_cursor(&lines, &cursor, number_col_width)?;
-                            term.update_status_line_cursor(&cursor)?;
-                        }
-                    }
-                }
-
-                KeyCode::Enter => {}
-                KeyCode::Esc => break,
-                KeyCode::Char('a') => {}
-                _ => {}
-            }
-        }
-    }
-
-    Ok(())
-}
-
 pub fn run_editor() -> Result<(), Box<dyn Error>> {
-    let mut term = Terminal::build()?;
-
-    let mut editor = Editor::build(PathBuf::from("tests/test_editor_1.txt"), &mut term)?;
+    let mut editor = Editor::build(PathBuf::from("tests/test_editor_1.txt"))?;
     editor.run()?;
 
     Ok(())
 }
 
-pub struct Editor<'a> {
-    terminal: &'a mut Terminal,
+pub struct Editor {
+    terminal: Terminal,
+    config: Config,
     buffer: Rc<Buffer>,
     scroll_offset: usize,
-    cursor: Rc<Cursor>,
+    cursor: Rc<RefCell<Cursor>>,
     mode: EditorMode,
     lines: Vec<(u16, String)>,
     num_col: NumColumn,
     status_line: StatusLine,
 }
 
-impl<'a> Editor<'a> {
-    pub fn build(filepath: PathBuf, terminal: &'a mut Terminal) -> Result<Self, Box<dyn Error>> {
+impl Editor {
+    pub fn build(filepath: PathBuf) -> Result<Self, Box<dyn Error>> {
         // TODO :  Rendre ça pluys intelligible et plus propre
+
+        let config = Config::new();
+        let terminal = Terminal::build(config.clone())?;
 
         let buffer = Rc::new(Buffer::from_file(filepath)?);
         let buffer_size = buffer.get_size() as u16;
         let term_size = terminal.get_size().unwrap().1 - 1;
         let lines = buffer.get_n_lines(term_size as usize, 0);
-        let cursor = Rc::new(Cursor::new());
+        let cursor = Rc::new(RefCell::new(Cursor::new()));
         let mode = Rc::new(EditorMode::Normal);
         let scroll_offset = Rc::new(0);
         let status_line = StatusLine::new(
@@ -151,6 +55,7 @@ impl<'a> Editor<'a> {
 
         Ok(Self {
             terminal,
+            config,
             buffer,
             scroll_offset: 0,
             cursor,
@@ -170,16 +75,127 @@ impl<'a> Editor<'a> {
 
         loop {
             if let Event::Key(key_event) = event::read()? {
-                match key_event.code {
-                    KeyCode::Right | KeyCode::Char('l') => {}
-                    KeyCode::Left | KeyCode::Char('h') => {}
-                    KeyCode::Up | KeyCode::Char('k') => {}
-                    KeyCode::Down | KeyCode::Char('j') => {}
-                    KeyCode::Esc => {
-                        break;
-                    }
-                    _ => {}
+                match self.mode {
+                    EditorMode::Normal => match key_event.code {
+                        KeyCode::Right | KeyCode::Char('l') => {
+                            self.move_cursor_right()?;
+                        }
+                        KeyCode::Left | KeyCode::Char('h') => {
+                            self.move_cursor_left()?;
+                        }
+                        KeyCode::Up | KeyCode::Char('k') => {
+                            self.move_cursor_up()?;
+                        }
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            self.move_cursor_down()?;
+                        }
+                        KeyCode::Esc => {
+                            break;
+                        }
+                        _ => {}
+                    },
+                    EditorMode::Insert => {}
                 }
+            }
+        }
+        Ok(())
+    }
+
+    fn move_cursor_right(&mut self) -> Result<(), Box<dyn Error>> {
+        let current_pos = self.cursor.borrow().get_pos();
+        let current_line_len = self.lines[current_pos.1 as usize].1.len();
+        if current_line_len > 0 && current_pos.0 < current_line_len as u16 - 1 {
+            self.cursor.borrow_mut().move_right();
+            self.terminal.draw_cursor(
+                &self.lines,
+                &self.cursor.borrow(),
+                self.num_col.get_width(),
+            )?;
+
+            self.display_status_line()?;
+        }
+        Ok(())
+    }
+
+    fn move_cursor_left(&mut self) -> Result<(), Box<dyn Error>> {
+        self.cursor.borrow_mut().move_left();
+        self.terminal
+            .draw_cursor(&self.lines, &self.cursor.borrow(), self.num_col.get_width())?;
+        self.display_status_line()?;
+        Ok(())
+    }
+
+    fn move_cursor_up(&mut self) -> Result<(), Box<dyn Error>> {
+        if self.cursor.borrow().get_pos().1 + self.scroll_offset as u16 > 0 {
+            if self.cursor.borrow().get_pos().1 == 0 && self.scroll_offset > 0 {
+                self.scroll_offset -= 1;
+                self.lines = self
+                    .buffer
+                    .get_n_lines(self.lines.len(), self.scroll_offset);
+                self.display_buffer_lines()?;
+                self.terminal.draw_cursor(
+                    &self.lines,
+                    &self.cursor.borrow(),
+                    self.num_col.get_width(),
+                )?;
+                self.display_status_line()?;
+            } else {
+                let next_h = self.cursor.borrow().get_pos().1 - 1;
+                let mut max_col = self.lines[next_h as usize].1.len() as u16;
+                if max_col > 0 {
+                    max_col -= 1;
+                }
+                let opt_col = self.cursor.borrow().get_opt_col();
+                if opt_col <= max_col {
+                    self.cursor.borrow_mut().set_pos((opt_col, next_h));
+                } else {
+                    self.cursor.borrow_mut().set_pos((max_col, next_h));
+                }
+                self.terminal.draw_cursor(
+                    &self.lines,
+                    &self.cursor.borrow(),
+                    self.num_col.get_width(),
+                )?;
+                self.display_status_line()?;
+            }
+        }
+        Ok(())
+    }
+
+    fn move_cursor_down(&mut self) -> Result<(), Box<dyn Error>> {
+        if self.cursor.borrow().get_pos().1
+            < (self.buffer.get_size() - self.scroll_offset) as u16 - 1
+        {
+            if self.cursor.borrow().get_pos().1 == self.lines.len() as u16 - 1 {
+                self.scroll_offset += 1;
+                self.lines = self
+                    .buffer
+                    .get_n_lines(self.lines.len(), self.scroll_offset);
+                self.display_buffer_lines()?;
+                self.terminal.draw_cursor(
+                    &self.lines,
+                    &self.cursor.borrow(),
+                    self.num_col.get_width(),
+                )?;
+                self.display_status_line()?;
+            } else {
+                let next_h = self.cursor.borrow().get_pos().1 + 1;
+                let mut max_col = self.lines[next_h as usize].1.len() as u16;
+                if max_col > 0 {
+                    max_col -= 1;
+                }
+                let opt_col = self.cursor.borrow().get_opt_col();
+                if opt_col <= max_col {
+                    self.cursor.borrow_mut().set_pos((opt_col, next_h));
+                } else {
+                    self.cursor.borrow_mut().set_pos((max_col, next_h));
+                }
+                self.terminal.draw_cursor(
+                    &self.lines,
+                    &self.cursor.borrow(),
+                    self.num_col.get_width(),
+                )?;
+                self.display_status_line()?;
             }
         }
         Ok(())
@@ -210,20 +226,14 @@ impl<'a> Editor<'a> {
 
     fn display_cursor(&mut self) -> Result<(), Box<dyn Error>> {
         self.terminal
-            .draw_cursor(&self.lines, &self.cursor, self.num_col.get_width())?;
+            .draw_cursor(&self.lines, &self.cursor.borrow(), self.num_col.get_width())?;
         Ok(())
-    }
-
-    pub fn lol_mode(&self) {
-        match self.mode {
-            EditorMode::Normal => {}
-        }
     }
 }
 
 pub enum EditorMode {
     Normal,
-    // Insert,
+    Insert,
     // Visual,
     // Command,
 }

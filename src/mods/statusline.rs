@@ -1,7 +1,7 @@
 // TODO  Changer pour des HashMaps
 
 use crossterm::style::Color;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::EditorMode;
 
@@ -9,7 +9,7 @@ use super::{buffer::Buffer, cursor::Cursor, terminal::CharStyle};
 
 pub struct StatusLine {
     mode: Rc<EditorMode>,
-    cursor: Rc<Cursor>,
+    cursor: Rc<RefCell<Cursor>>,
     buffer: Rc<Buffer>,
     scroll_offset: Rc<usize>,
 }
@@ -17,7 +17,7 @@ pub struct StatusLine {
 impl StatusLine {
     pub fn new(
         mode: Rc<EditorMode>,
-        cursor: Rc<Cursor>,
+        cursor: Rc<RefCell<Cursor>>,
         buffer: Rc<Buffer>,
         scroll_offset: Rc<usize>,
     ) -> Self {
@@ -40,6 +40,7 @@ impl StatusLine {
     fn get_mode_block(&self) -> String {
         match *self.mode {
             EditorMode::Normal => String::from(" NORMAL "),
+            EditorMode::Insert => String::from(" INSERT "),
         }
     }
 
@@ -48,8 +49,8 @@ impl StatusLine {
     }
 
     fn get_cursor_block(&self) -> String {
-        let (x, y) = self.cursor.get_pos();
-        format!("{}:{}", x, y + self.scroll_offset.to_be() as u16)
+        let (x, y) = self.cursor.borrow().get_pos();
+        format!(" {}:{} ", x, y + self.scroll_offset.to_be() as u16)
     }
 }
 

@@ -7,11 +7,12 @@ use crossterm::{
 
 use std::{error::Error, io};
 
-use super::{buffer::Buffer, cursor::Cursor, numcol::NumColumn, statusline::StatusLine};
+use super::{config::Config, cursor::Cursor, numcol::NumColumn, statusline::StatusLine};
 
 pub struct Terminal {
     stdout: io::Stdout,
     mode: TerminalMode,
+    config: Config,
 }
 
 impl Drop for Terminal {
@@ -28,13 +29,15 @@ impl Terminal {
         Terminal {
             stdout: io::stdout(),
             mode: TerminalMode::Classic,
+            config: Config::new(),
         }
     }
 
-    pub fn build() -> Result<Terminal, Box<dyn Error>> {
+    pub fn build(config: Config) -> Result<Terminal, Box<dyn Error>> {
         let mut term = Terminal {
             stdout: io::stdout(),
             mode: TerminalMode::Classic,
+            config,
         };
         term.switch_mode()?;
         term.enter_alternate()?;
@@ -131,144 +134,144 @@ impl Terminal {
         Ok(())
     }
 
-    pub fn write_status_line(
-        &mut self,
-        filename: &String,
-        cursor: &Cursor,
-    ) -> Result<(), Box<dyn Error>> {
-        let size = self.get_size()?;
+    // pub fn write_status_line(
+    //     &mut self,
+    //     filename: &String,
+    //     cursor: &Cursor,
+    // ) -> Result<(), Box<dyn Error>> {
+    //     let size = self.get_size()?;
+    //
+    //     // Backgound
+    //     let style = CharStyle::new(Color::White, Color::Grey);
+    //     for w in 0..size.0 {
+    //         self.write(' ', &style, (w as u16, size.1))?;
+    //     }
+    //
+    //     // Mode
+    //     let style_b1 = CharStyle::new(Color::White, Color::DarkGreen);
+    //     self.write_block(&String::from(" NORMAL "), &style_b1, (0, size.1))?;
+    //
+    //     // Filename
+    //     let style_b2 = CharStyle::new(Color::White, Color::DarkBlue);
+    //     self.write_block(&filename, &style_b2, (8, size.1))?;
+    //
+    //     // position
+    //     let style_b3 = CharStyle::new(Color::White, Color::DarkRed);
+    //     let position = cursor.get_pos();
+    //     let position_string = String::from(format!(
+    //         "{:?} {}:{} {} ",
+    //         cursor.get_prev_pos(),
+    //         position.1,
+    //         position.0,
+    //         cursor.get_opt_col()
+    //     ));
+    //     self.write_block(
+    //         &position_string,
+    //         &style_b3,
+    //         (size.0 - position_string.len() as u16, size.1),
+    //     )?;
+    //
+    //     Ok(())
+    // }
 
-        // Backgound
-        let style = CharStyle::new(Color::White, Color::Grey);
-        for w in 0..size.0 {
-            self.write(' ', &style, (w as u16, size.1))?;
-        }
+    // pub fn update_status_line_cursor(&mut self, cursor: &Cursor) -> Result<(), Box<dyn Error>> {
+    //     let size = self.get_size()?;
+    //     let style_b3 = CharStyle::new(Color::White, Color::DarkRed);
+    //     let position = cursor.get_pos();
+    //     let position_string = String::from(format!(
+    //         "{:?} {}:{} {} ",
+    //         cursor.get_prev_pos(),
+    //         position.1,
+    //         position.0,
+    //         cursor.get_opt_col()
+    //     ));
+    //     self.write_block(
+    //         &position_string,
+    //         &style_b3,
+    //         (size.0 - position_string.len() as u16, size.1),
+    //     )?;
+    //
+    //     Ok(())
+    // }
 
-        // Mode
-        let style_b1 = CharStyle::new(Color::White, Color::DarkGreen);
-        self.write_block(&String::from(" NORMAL "), &style_b1, (0, size.1))?;
+    // pub fn write_lines(
+    //     &mut self,
+    //     lines: &Vec<(u16, String)>,
+    //     number_col_width: u16,
+    //     buffer_size: u16,
+    // ) -> Result<(), Box<dyn Error>> {
+    //     let number_col_style = CharStyle::new(Color::Grey, Color::DarkGrey);
+    //     let line_style = CharStyle::new(Color::White, Color::Black);
+    //     let size = self.get_size()?;
+    //     for (i, line) in lines.iter().enumerate() {
+    //         if line.0 < buffer_size {
+    //             self.write_block(
+    //                 &format!("{:>width$}", &line.0 + 1, width = number_col_width as usize),
+    //                 &number_col_style,
+    //                 (0, i as u16),
+    //             )?;
+    //             self.write_block(
+    //                 &format!(
+    //                     " {} {:>width$}",
+    //                     &line.1,
+    //                     ' ',
+    //                     width = size.0 as usize - line.1.len()
+    //                 ),
+    //                 &line_style,
+    //                 (number_col_width as u16, i as u16),
+    //             )?;
+    //         } else {
+    //             self.write_block(
+    //                 &format!("{:>width$}", "", width = number_col_width as usize),
+    //                 &number_col_style,
+    //                 (0, i as u16),
+    //             )?;
+    //             self.write_block(
+    //                 &format!("{:>width$}", " ", width = size.0 as usize),
+    //                 &line_style,
+    //                 (number_col_width, i as u16),
+    //             )?;
+    //         }
+    //     }
+    //
+    //     Ok(())
+    // }
 
-        // Filename
-        let style_b2 = CharStyle::new(Color::White, Color::DarkBlue);
-        self.write_block(&filename, &style_b2, (8, size.1))?;
-
-        // position
-        let style_b3 = CharStyle::new(Color::White, Color::DarkRed);
-        let position = cursor.get_pos();
-        let position_string = String::from(format!(
-            "{:?} {}:{} {} ",
-            cursor.get_prev_pos(),
-            position.1,
-            position.0,
-            cursor.get_opt_col()
-        ));
-        self.write_block(
-            &position_string,
-            &style_b3,
-            (size.0 - position_string.len() as u16, size.1),
-        )?;
-
-        Ok(())
-    }
-
-    pub fn update_status_line_cursor(&mut self, cursor: &Cursor) -> Result<(), Box<dyn Error>> {
-        let size = self.get_size()?;
-        let style_b3 = CharStyle::new(Color::White, Color::DarkRed);
-        let position = cursor.get_pos();
-        let position_string = String::from(format!(
-            "{:?} {}:{} {} ",
-            cursor.get_prev_pos(),
-            position.1,
-            position.0,
-            cursor.get_opt_col()
-        ));
-        self.write_block(
-            &position_string,
-            &style_b3,
-            (size.0 - position_string.len() as u16, size.1),
-        )?;
-
-        Ok(())
-    }
-
-    pub fn write_lines(
-        &mut self,
-        lines: &Vec<(u16, String)>,
-        number_col_width: u16,
-        buffer_size: u16,
-    ) -> Result<(), Box<dyn Error>> {
-        let number_col_style = CharStyle::new(Color::Grey, Color::DarkGrey);
-        let line_style = CharStyle::new(Color::White, Color::Black);
-        let size = self.get_size()?;
-        for (i, line) in lines.iter().enumerate() {
-            if line.0 < buffer_size {
-                self.write_block(
-                    &format!("{:>width$}", &line.0 + 1, width = number_col_width as usize),
-                    &number_col_style,
-                    (0, i as u16),
-                )?;
-                self.write_block(
-                    &format!(
-                        " {} {:>width$}",
-                        &line.1,
-                        ' ',
-                        width = size.0 as usize - line.1.len()
-                    ),
-                    &line_style,
-                    (number_col_width as u16, i as u16),
-                )?;
-            } else {
-                self.write_block(
-                    &format!("{:>width$}", "", width = number_col_width as usize),
-                    &number_col_style,
-                    (0, i as u16),
-                )?;
-                self.write_block(
-                    &format!("{:>width$}", " ", width = size.0 as usize),
-                    &line_style,
-                    (number_col_width, i as u16),
-                )?;
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn write_buffer(&mut self, buffer: &Buffer) -> Result<(), Box<dyn Error>> {
-        let size = self.get_size()?;
-
-        let lines = buffer.get_n_lines(size.1 as usize - 1, 0);
-
-        let buffer_size = buffer.get_size();
-
-        let number_col_width = buffer.get_size().to_string().len() + 1;
-
-        let number_col_style = CharStyle::new(Color::Grey, Color::DarkGrey);
-        let line_style = CharStyle::new(Color::White, Color::Black);
-        for (i, line) in lines.iter().enumerate() {
-            if i < buffer_size {
-                self.write_block(
-                    &format!("{:>width$}", &line.0, width = number_col_width),
-                    &number_col_style,
-                    (0, i as u16),
-                )?;
-                self.write(' ', &line_style, (number_col_width as u16, i as u16))?;
-                self.write_block(
-                    &line.1,
-                    &line_style,
-                    (number_col_width as u16 + 1, i as u16),
-                )?;
-            } else {
-                self.write_block(
-                    &format!("{:>width$}", "", width = number_col_width),
-                    &number_col_style,
-                    (0, i as u16),
-                )?;
-            }
-        }
-
-        Ok(())
-    }
+    // pub fn write_buffer(&mut self, buffer: &Buffer) -> Result<(), Box<dyn Error>> {
+    //     let size = self.get_size()?;
+    //
+    //     let lines = buffer.get_n_lines(size.1 as usize - 1, 0);
+    //
+    //     let buffer_size = buffer.get_size();
+    //
+    //     let number_col_width = buffer.get_size().to_string().len() + 1;
+    //
+    //     let number_col_style = CharStyle::new(Color::Grey, Color::DarkGrey);
+    //     let line_style = CharStyle::new(Color::White, Color::Black);
+    //     for (i, line) in lines.iter().enumerate() {
+    //         if i < buffer_size {
+    //             self.write_block(
+    //                 &format!("{:>width$}", &line.0, width = number_col_width),
+    //                 &number_col_style,
+    //                 (0, i as u16),
+    //             )?;
+    //             self.write(' ', &line_style, (number_col_width as u16, i as u16))?;
+    //             self.write_block(
+    //                 &line.1,
+    //                 &line_style,
+    //                 (number_col_width as u16 + 1, i as u16),
+    //             )?;
+    //         } else {
+    //             self.write_block(
+    //                 &format!("{:>width$}", "", width = number_col_width),
+    //                 &number_col_style,
+    //                 (0, i as u16),
+    //             )?;
+    //         }
+    //     }
+    //
+    //     Ok(())
+    // }
 
     pub fn draw_cursor(
         &mut self,
@@ -285,26 +288,22 @@ impl Terminal {
             .nth(prev_pos.0 as usize)
             .map_or(' ', |v| v);
 
-        prev_pos.0 += number_col_width + 1;
-        self.write(
-            *prev_char,
-            &CharStyle::new(Color::White, Color::Black),
-            prev_pos,
-        )?;
+        prev_pos.0 += number_col_width;
+        self.write(*prev_char, &self.config.styles.cursor, prev_pos)?;
 
         let char = &lines[pos.1 as usize]
             .1
             .chars()
             .nth(pos.0 as usize)
             .map_or(' ', |v| v);
-        pos.0 += number_col_width + 1;
+        pos.0 += number_col_width;
         self.write(*char, &CharStyle::new(Color::Black, Color::White), pos)?;
 
         Ok(())
     }
 
     pub fn draw_numcol(&mut self, numcol: &NumColumn) -> Result<(), Box<dyn Error>> {
-        let width = numcol.get_width();
+        let width = numcol.get_width() - 2;
         let numcol_style = CharStyle::new(Color::Grey, Color::DarkGrey);
         for (i, line) in numcol.get_nums().iter().enumerate() {
             if let Some(l) = line {
@@ -365,9 +364,20 @@ impl Terminal {
         numcol: &NumColumn,
     ) -> Result<(), Box<dyn Error>> {
         let line_style = CharStyle::new(Color::White, Color::Black);
-        let width = numcol.get_width() + 1;
+        let width = numcol.get_width();
+        let buffer_width = self.get_size()?.0 - width;
         for (i, line) in lines.iter().enumerate() {
+            let line_len = line.1.len();
             self.write_block(&format!("{}", line.1), &line_style, (width, i as u16))?;
+            self.write_block(
+                &format!(
+                    " {:>width$} ",
+                    '.',
+                    width = buffer_width as usize - line_len as usize
+                ),
+                &line_style,
+                (width + line_len as u16, i as u16),
+            )?;
         }
         Ok(())
     }
