@@ -22,7 +22,7 @@ pub fn run_editor() -> Result<(), Box<dyn Error>> {
 
 pub struct Editor {
     terminal: Terminal,
-    config: Config,
+    config: Rc<Config>,
     buffer: Rc<Buffer>,
     scroll_offset: usize,
     cursor: Rc<RefCell<Cursor>>,
@@ -36,8 +36,8 @@ impl Editor {
     pub fn build(filepath: PathBuf) -> Result<Self, Box<dyn Error>> {
         // TODO :  Rendre ça pluys intelligible et plus propre
 
-        let config = Config::new();
-        let terminal = Terminal::build(config.clone())?;
+        let config = Rc::new(Config::default());
+        let terminal = Terminal::build(Rc::clone(&config))?;
 
         let buffer = Rc::new(Buffer::from_file(filepath)?);
         let buffer_size = buffer.get_size() as u16;

@@ -15,6 +15,12 @@ impl Config {
     }
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self { styles: Styles::default() }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct Styles {
     pub num_col: CharStyle,
@@ -29,6 +35,21 @@ pub struct Styles {
 
 impl Styles {
     pub fn basic_theme() -> Self {
+        Self {
+            num_col: CharStyle::new(Color::Grey, Color::DarkGrey),
+            buffer: CharStyle::new(Color::White, Color::Black),
+            normal_mode: CharStyle::new(Color::White, Color::Blue),
+            inser_mode: CharStyle::new(Color::Black, Color::Yellow),
+            filename: CharStyle::new(Color::White, Color::DarkGrey),
+            cursor: CharStyle::new(Color::White, Color::DarkGrey),
+            cursor_pos: CharStyle::new(Color::White, Color::DarkRed),
+            status_line: CharStyle::new(Color::White, Color::Grey),
+        }
+    }
+}
+
+impl Default for Styles {
+    fn default() -> Self {
         Self {
             num_col: CharStyle::new(Color::Grey, Color::DarkGrey),
             buffer: CharStyle::new(Color::White, Color::Black),
